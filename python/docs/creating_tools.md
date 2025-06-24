@@ -16,7 +16,7 @@ A tool, within the Opal platform, is a discrete, API-exposed function or service
 Install the necessary dependencies:
 
 ```bash
-pip install fastapi pydantic opal-tools-sdk uvicorn
+pip install fastapi pydantic uvicorn optimizely-opal-opal-tools-sdk
 ```
 
 ### 2. Initialize FastAPI Application and Tools Service
