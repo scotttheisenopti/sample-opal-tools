@@ -1,0 +1,7 @@
+main.py
+pyproject.toml
+google_sheets_tool.egg-info/PKG-INFO
+google_sheets_tool.egg-info/SOURCES.txt
+google_sheets_tool.egg-info/dependency_links.txt
+google_sheets_tool.egg-info/requires.txt
+google_sheets_tool.egg-info/top_level.txt
