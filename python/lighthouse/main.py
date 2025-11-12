@@ -83,15 +83,19 @@ async def analyze_with_lighthouse(parameters: LighthouseParameters):
             }
         }
 
-        if parameters.format == "json":
-            # Return full Lighthouse data
-            return {
-                "summary": summary,
-                "full_report": lighthouse_data
-            }
-        else:
-            # Return just the summary for simpler viewing
-            return summary
+        # Convert all audit scores in the full report to percentages for consistency
+        if 'audits' in lighthouse_data:
+            for audit_id, audit_data in lighthouse_data['audits'].items():
+                if 'score' in audit_data and audit_data['score'] is not None:
+                    # Convert score from 0-1 to 0-100 for better readability
+                    audit_data['scorePercentage'] = int(audit_data['score'] * 100)
+
+        # Always return both summary and full report
+        # The full_report contains all audits, recommendations, and detailed metrics
+        return {
+            "summary": summary,
+            "full_report": lighthouse_data
+        }
 
     except Exception as e:
         return {

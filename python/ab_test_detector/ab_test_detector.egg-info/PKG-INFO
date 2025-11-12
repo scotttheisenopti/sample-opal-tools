@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: ab-test-detector
+Version: 0.1.0
+Summary: Detects A/B tests on competitor websites by analyzing screenshot variations
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi[standard]>=0.115.13
+Requires-Dist: optimizely-opal-opal-tools-sdk>=0.1.1.dev0
+Requires-Dist: playwright>=1.40.0
+Requires-Dist: pillow>=10.0.0
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: scikit-image>=0.22.0
+Requires-Dist: imagehash>=4.3.0
