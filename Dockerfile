@@ -4,7 +4,7 @@ FROM node:18-slim AS node-base
 # Install Lighthouse
 RUN npm install -g lighthouse
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Install Node.js and Lighthouse from node-base
 COPY --from=node-base /usr/local/bin/node /usr/local/bin/
