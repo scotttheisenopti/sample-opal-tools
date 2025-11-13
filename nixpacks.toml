@@ -7,6 +7,3 @@ cmds = [
   "npm install -g lighthouse",
   "playwright install --with-deps chromium"
 ]
-
-[start]
-cmd = "bash start.sh"
