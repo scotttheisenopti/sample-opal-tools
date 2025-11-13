@@ -37,7 +37,7 @@ class LighthouseParameters(BaseModel):
 # A/B Test Detector parameters
 class ABTestDetectorParameters(BaseModel):
     url: str = Field(description="The URL to analyze for A/B tests")
-    num_captures: int = Field(default=3, description="Number of screenshots to capture")
+    num_captures: int = Field(default=10, description="Number of screenshots to capture")
     delay_seconds: int = Field(default=3, description="Delay between captures in seconds")
     viewport_width: int = Field(default=1920, description="Browser viewport width")
     viewport_height: int = Field(default=1080, description="Browser viewport height")
