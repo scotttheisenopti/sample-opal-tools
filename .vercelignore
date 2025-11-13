@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Individual tool directories (we're using unified API)
+python/*/
+
+# TypeScript/dotnet (not deploying these)
+typescript/
+dotnet/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+python/docs/
+*.md
+!README.md
+
+# Local testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node modules (will be installed by Vercel)
+node_modules/

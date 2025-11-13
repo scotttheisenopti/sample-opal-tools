@@ -1,0 +1,16 @@
+{
+  "name": "opal-tools-vercel",
+  "version": "1.0.0",
+  "description": "Unified Opal Tools API for Vercel deployment",
+  "scripts": {
+    "install-browsers": "playwright install --with-deps chromium",
+    "postinstall": "npm run install-browsers"
+  },
+  "dependencies": {
+    "lighthouse": "^11.0.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.x"
+  }
+}
