@@ -20,6 +20,7 @@ import numpy as np
 from skimage.metrics import structural_similarity as ssim
 import imagehash
 import base64
+import random
 
 # Create FastAPI app for heavy tools
 app = FastAPI(title="Opal Tools Service - Heavy (Railway/Render)")
@@ -149,6 +150,15 @@ async def detect_ab_test(parameters: ABTestDetectorParameters):
     screenshots = []
     screenshot_hashes = []
 
+    # Rotate user agents to simulate different users
+    user_agents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    ]
+
     try:
         async with async_playwright() as p:
             # Launch browser with container-friendly flags
@@ -166,10 +176,14 @@ async def detect_ab_test(parameters: ABTestDetectorParameters):
 
             # Capture screenshots
             for i in range(parameters.num_captures):
-                # Create new context for each capture (fresh session)
+                # Create new context for each capture (fresh session with no cookies/storage)
+                # Rotate user agent to simulate different users
                 context = await browser.new_context(
                     viewport={'width': parameters.viewport_width, 'height': parameters.viewport_height},
-                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    user_agent=random.choice(user_agents),
+                    ignore_https_errors=True,
+                    # Clear all storage between captures to simulate truly fresh visits
+                    storage_state=None
                 )
 
                 page = await context.new_page()
@@ -347,15 +361,34 @@ async def detect_ab_test(parameters: ABTestDetectorParameters):
                     "Minor variations detected, possibly due to dynamic content or ads."
                 )
 
-        # Add screenshot samples if variations detected
-        if num_variations > 1 and len(screenshots) >= 2:
-            # Convert first screenshot from each variation to base64 for preview
+        # Always return screenshot samples for verification (not just when variations detected)
+        if len(screenshots) >= 1:
             samples = []
-            for i, (hash_val, indices) in enumerate(list(variation_groups.items())[:2]):
-                if indices:
-                    img = screenshots[indices[0]]
-                    # Resize for preview
-                    img_thumb = img.resize((400, 300), Image.Resampling.LANCZOS)
+
+            # If variations detected, show first from each variation group
+            if num_variations > 1:
+                for i, (hash_val, indices) in enumerate(list(variation_groups.items())[:3]):
+                    if indices:
+                        img = screenshots[indices[0]]
+                        # Resize for manageable size
+                        img_thumb = img.resize((800, 600), Image.Resampling.LANCZOS)
+
+                        # Convert to base64
+                        buffer = io.BytesIO()
+                        img_thumb.save(buffer, format='PNG')
+                        img_str = base64.b64encode(buffer.getvalue()).decode()
+
+                        samples.append({
+                            "variation": f"variation_{i+1}",
+                            "screenshot_index": indices[0],
+                            "preview": f"data:image/png;base64,{img_str}"  # Full image for verification
+                        })
+            else:
+                # No variations detected - return first 3 screenshots so user can verify
+                for i in range(min(3, len(screenshots))):
+                    img = screenshots[i]
+                    # Resize for manageable size
+                    img_thumb = img.resize((800, 600), Image.Resampling.LANCZOS)
 
                     # Convert to base64
                     buffer = io.BytesIO()
@@ -363,8 +396,8 @@ async def detect_ab_test(parameters: ABTestDetectorParameters):
                     img_str = base64.b64encode(buffer.getvalue()).decode()
 
                     samples.append({
-                        "variation": f"variation_{i+1}",
-                        "preview": f"data:image/png;base64,{img_str[:100]}..."  # Truncated for response
+                        "screenshot_index": i,
+                        "preview": f"data:image/png;base64,{img_str}"  # Full image for verification
                     })
 
             result["screenshot_samples"] = samples
