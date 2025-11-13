@@ -37,7 +37,7 @@ class LighthouseParameters(BaseModel):
 # A/B Test Detector parameters
 class ABTestDetectorParameters(BaseModel):
     url: str = Field(description="The URL to analyze for A/B tests")
-    num_captures: int = Field(default=10, description="Number of screenshots to capture")
+    num_captures: int = Field(default=3, description="Number of screenshots to capture")
     delay_seconds: int = Field(default=3, description="Delay between captures in seconds")
     viewport_width: int = Field(default=1920, description="Browser viewport width")
     viewport_height: int = Field(default=1080, description="Browser viewport height")
@@ -151,7 +151,18 @@ async def detect_ab_test(parameters: ABTestDetectorParameters):
 
     try:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            # Launch browser with container-friendly flags
+            browser = await p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-software-rasterizer',
+                    '--disable-extensions'
+                ]
+            )
 
             # Capture screenshots
             for i in range(parameters.num_captures):
@@ -164,8 +175,8 @@ async def detect_ab_test(parameters: ABTestDetectorParameters):
                 page = await context.new_page()
 
                 try:
-                    # Navigate to URL
-                    await page.goto(parameters.url, wait_until='networkidle', timeout=30000)
+                    # Navigate to URL with more lenient wait condition
+                    await page.goto(parameters.url, wait_until='domcontentloaded', timeout=60000)
 
                     # Wait a bit for any dynamic content
                     await asyncio.sleep(2)
