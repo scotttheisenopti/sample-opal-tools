@@ -137,5 +137,6 @@ async def add_google_sheet_row(parameters: AddRowParameters):
 # VERCEL SERVERLESS HANDLER
 # ============================================================================
 
-# Export the app for Vercel
-handler = app
+# Export the app for Vercel (Vercel will automatically wrap this as an ASGI handler)
+# Note: Vercel expects 'app' to be exported at module level
+# The app is already created above, no need to reassign
