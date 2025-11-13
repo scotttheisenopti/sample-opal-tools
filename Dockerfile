@@ -58,12 +58,9 @@ RUN playwright install-deps chromium
 # Copy application code
 COPY api/ ./api/
 
-# Expose port
-EXPOSE 8000
-
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV PORT=8000
 
 # Run the heavy tools API
+# Railway sets PORT dynamically, so we use it directly
 CMD uvicorn api.heavy:app --host 0.0.0.0 --port ${PORT}
