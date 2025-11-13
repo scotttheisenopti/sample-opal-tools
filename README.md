@@ -5,166 +5,182 @@ This repository hosts sample tools using the opal-tools-sdk
 ## Overview
 
 This project contains multiple sample tools built with the Opal Tools SDK, organized by language:
-- **Python**: 7 tools across 5 services (greeting, weather, google_sheets, lighthouse, ab_test_detector)
+- **Python**: 7 tools across 2 deployments (lightweight + heavy)
 - **TypeScript**: Sample greeting tools
 - **.NET**: Sample greeting tools
 
-## Unified API (Vercel Deployment)
+## Dual Deployment Architecture
 
-The unified API combines all Python tools into a single FastAPI application that can be deployed to Vercel as a serverless function.
+To handle tools with different resource requirements, this project uses a **split deployment strategy**:
 
-### Available Tools
-
-1. **greeting** - Greets a person in a random language (English, Spanish, or French)
+### Lightweight Tools (Vercel) - `api/index.py`
+Fast, serverless deployment for simple tools:
+1. **greeting** - Greets a person in a random language
 2. **todays-date** - Returns today's date in a specified format
 3. **get_weather** - Gets current weather for a location (mock data)
 4. **get_google_sheet_rows** - Gets all rows from a Google Sheet
 5. **add_google_sheet_row** - Adds a new row to the Google Sheet backlog
+
+**Dependencies**: FastAPI, httpx, pydantic (< 5MB)
+
+### Heavy Tools (Railway/Render) - `api/heavy.py`
+Container-based deployment for tools with browser/system dependencies:
 6. **analyze_with_lighthouse** - Runs Lighthouse performance analysis on a URL
-7. **detect_ab_test** - Detects A/B tests by comparing multiple screenshots of a URL
+7. **detect_ab_test** - Detects A/B tests by comparing multiple screenshots
 
-### Deployment to Vercel
+**Dependencies**: Playwright (Chromium browser), Lighthouse CLI, Pillow, NumPy (~300MB)
 
-#### Prerequisites
+---
 
-- [Vercel CLI](https://vercel.com/docs/cli) installed (`npm i -g vercel`)
-- Vercel account (free or Pro recommended for longer function timeouts)
-- Git repository connected to Vercel (optional, can deploy via CLI)
+## Deployment Guide
 
-#### Quick Deploy
+### Option 1: Vercel (Lightweight Tools)
 
-1. **Clone and navigate to the repository:**
-   ```bash
-   cd sample-opal-tools
-   ```
-
-2. **Install Vercel CLI (if not already installed):**
-   ```bash
-   npm i -g vercel
-   ```
-
-3. **Deploy to Vercel:**
-   ```bash
-   vercel
-   ```
-
-   Follow the prompts to link to your Vercel account and configure the project.
-
-4. **For production deployment:**
-   ```bash
-   vercel --prod
-   ```
-
-#### Manual Configuration
-
-If you need to configure manually or understand the setup:
-
-1. **Install dependencies locally (optional, for testing):**
-   ```bash
-   pip install -r requirements.txt
-   npm install
-   ```
-
-2. **Set up Playwright browsers (for ab_test_detector):**
-   ```bash
-   playwright install chromium
-   ```
-
-3. **Deploy to Vercel:**
-   - Push your code to GitHub/GitLab/Bitbucket
-   - Import the project in Vercel dashboard
-   - Vercel will automatically detect the configuration from `vercel.json`
-
-#### Environment Variables
-
-Some tools may require environment variables. Set these in the Vercel dashboard under **Settings → Environment Variables**:
-
-- (Currently no environment variables required, but add here as needed)
-
-### Testing the Deployment
-
-Once deployed, you can test the API:
-
-1. **View all available tools (Discovery endpoint):**
-   ```bash
-   curl https://your-deployment.vercel.app/discovery
-   ```
-
-2. **Invoke a tool:**
-   ```bash
-   curl -X POST https://your-deployment.vercel.app/tools/greeting \
-     -H "Content-Type: application/json" \
-     -d '{"name": "Alice", "language": "spanish"}'
-   ```
-
-3. **Test other tools:**
-   ```bash
-   # Get today's date
-   curl -X POST https://your-deployment.vercel.app/tools/todays-date \
-     -H "Content-Type: application/json" \
-     -d '{"format": "%B %d, %Y"}'
-
-   # Run Lighthouse analysis
-   curl -X POST https://your-deployment.vercel.app/tools/analyze_with_lighthouse \
-     -H "Content-Type: application/json" \
-     -d '{"url": "https://example.com"}'
-
-   # Detect A/B tests
-   curl -X POST https://your-deployment.vercel.app/tools/detect_ab_test \
-     -H "Content-Type: application/json" \
-     -d '{"url": "https://example.com", "num_captures": 5}'
-   ```
-
-### Important Notes & Limitations
-
-#### Vercel Constraints
-
-- **Function timeout**: 10 seconds (Hobby), 60 seconds (Pro)
-  - The `ab_test_detector` and `lighthouse` tools may timeout on the Hobby plan
-  - Recommended to use Vercel Pro for these heavy tools
-
-- **Deployment size**: 50MB limit
-  - Playwright browsers are large (~200MB+)
-  - Vercel may struggle to include full Playwright installation
-  - Consider using `playwright-chromium` or external hosting for ab_test_detector
-
-- **Cold starts**: First request may be slow due to serverless cold start
-
-#### Tool-Specific Considerations
-
-**Lighthouse Tool:**
-- Requires Node.js Lighthouse CLI to be available
-- May not work reliably on Vercel due to browser dependencies
-- Consider using Lighthouse CI or external service for production
-
-**A/B Test Detector:**
-- Requires Playwright and Chromium browser
-- May exceed size limits on Vercel
-- Recommended to host separately on platforms with better container support (Railway, Render, Fly.io)
-
-**Google Sheets Tools:**
-- Requires valid Google Sheets API URL
-- Update `SHEET_URL` in `api/index.py` with your own Google Apps Script endpoint
-
-### Local Development
-
-To run the unified API locally:
+**Deploy to Vercel for the 5 lightweight tools:**
 
 ```bash
-# Install Python dependencies
-pip install -r requirements.txt
+# Install Vercel CLI
+npm i -g vercel
 
-# Install Node dependencies (for Lighthouse)
-npm install
-
-# Run the API
-uvicorn api.index:app --reload --host 0.0.0.0 --port 8000
+# Deploy
+vercel --prod
 ```
 
-Then visit:
+**What gets deployed:**
+- File: `api/index.py`
+- Dependencies: `requirements.txt` (lightweight)
+- Discovery endpoint: `https://your-app.vercel.app/discovery`
+
+**Configuration:**
+- `vercel.json` - Routes all traffic to `api/index.py`
+- Auto-detects Python and installs dependencies
+- ~5MB deployment size
+- 10-60 second timeout (depending on plan)
+
+### Option 2: Railway (Heavy Tools)
+
+**Deploy to Railway for the 2 heavy tools:**
+
+1. **Connect your GitHub repo to Railway:**
+   - Go to [railway.app](https://railway.app)
+   - Create new project → Deploy from GitHub
+   - Select this repository
+
+2. **Railway auto-detects the config:**
+   - Reads `railway.toml`
+   - Uses `requirements-heavy.txt`
+   - Runs `uvicorn api.heavy:app`
+   - Discovery endpoint: `https://your-app.railway.app/discovery`
+
+**Alternative: Deploy with Dockerfile**
+```bash
+# Railway/Render will auto-detect and use the Dockerfile
+# No additional configuration needed
+```
+
+### Option 3: Render (Heavy Tools)
+
+**Deploy to Render as an alternative to Railway:**
+
+1. Go to [render.com](https://render.com)
+2. New → Web Service
+3. Connect GitHub repository
+4. Configure:
+   - **Build Command**: `pip install -r requirements-heavy.txt && playwright install chromium`
+   - **Start Command**: `uvicorn api.heavy:app --host 0.0.0.0 --port $PORT`
+   - **Environment**: Python 3
+5. Deploy
+
+---
+
+## Testing Your Deployments
+
+### Test Lightweight Tools (Vercel)
+
+```bash
+# Discovery endpoint
+curl https://your-app.vercel.app/discovery
+
+# Test greeting tool
+curl -X POST https://your-app.vercel.app/tools/greeting \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Alice", "language": "spanish"}'
+
+# Test date tool
+curl -X POST https://your-app.vercel.app/tools/todays-date \
+  -H "Content-Type: application/json" \
+  -d '{"format": "%B %d, %Y"}'
+
+# Test weather tool
+curl -X POST https://your-app.vercel.app/tools/get_weather \
+  -H "Content-Type: application/json" \
+  -d '{"location": "San Francisco", "units": "imperial"}'
+```
+
+### Test Heavy Tools (Railway/Render)
+
+```bash
+# Discovery endpoint
+curl https://your-app.railway.app/discovery
+
+# Test Lighthouse tool
+curl -X POST https://your-app.railway.app/tools/analyze_with_lighthouse \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com"}'
+
+# Test A/B test detector
+curl -X POST https://your-app.railway.app/tools/detect_ab_test \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com", "num_captures": 5, "delay_seconds": 2}'
+```
+
+---
+
+## Local Development
+
+### Run Lightweight Tools Locally
+
+```bash
+# Install dependencies
+pip install -r requirements-light.txt
+
+# Run the API
+uvicorn api.index:app --reload --port 8000
+```
+
+Visit:
 - API: http://localhost:8000
-- Discovery endpoint: http://localhost:8000/discovery
-- API docs: http://localhost:8000/docs
+- Discovery: http://localhost:8000/discovery
+- Docs: http://localhost:8000/docs
+
+### Run Heavy Tools Locally
+
+```bash
+# Install dependencies
+pip install -r requirements-heavy.txt
+npm install -g lighthouse
+playwright install chromium
+
+# Run the API
+uvicorn api.heavy:app --reload --port 8001
+```
+
+Visit:
+- API: http://localhost:8001
+- Discovery: http://localhost:8001/discovery
+- Docs: http://localhost:8001/docs
+
+### Run with Docker (Heavy Tools)
+
+```bash
+# Build the image
+docker build -t opal-tools-heavy .
+
+# Run the container
+docker run -p 8000:8000 opal-tools-heavy
+```
+
+---
 
 ## Individual Tool Deployment
 
@@ -178,34 +194,146 @@ python main.py
 
 Then access the tool at http://localhost:8000 with its own `/discovery` endpoint.
 
+---
+
 ## Project Structure
 
 ```
 sample-opal-tools/
 ├── api/
-│   └── index.py           # Unified API entry point for Vercel
-├── python/                # Python tools (individual services)
+│   ├── index.py              # Lightweight tools (Vercel)
+│   └── heavy.py              # Heavy tools (Railway/Render)
+├── python/                   # Individual tool services
 │   ├── greeting/
 │   ├── weather/
 │   ├── google_sheets/
 │   ├── lighthouse/
 │   └── ab_test_detector/
-├── typescript/            # TypeScript tools
-├── dotnet/                # .NET tools
-├── vercel.json           # Vercel deployment configuration
-├── requirements.txt      # Python dependencies (unified)
-├── package.json          # Node.js dependencies (Lighthouse)
+├── typescript/               # TypeScript tools
+├── dotnet/                   # .NET tools
+├── vercel.json              # Vercel configuration
+├── railway.toml             # Railway configuration
+├── Dockerfile               # Docker build for heavy tools
+├── requirements.txt         # Lightweight dependencies (Vercel)
+├── requirements-light.txt   # Same as above
+├── requirements-heavy.txt   # Heavy dependencies (Railway/Render)
+├── package.json             # Node.js dependencies (Lighthouse)
 └── README.md
 ```
 
+---
+
+## Deployment Comparison
+
+| Feature | Vercel (Lightweight) | Railway/Render (Heavy) |
+|---------|---------------------|----------------------|
+| **Tools** | 5 lightweight tools | 2 heavy tools |
+| **Size** | ~5MB | ~300MB |
+| **Dependencies** | Python packages only | Python + Node + Browsers |
+| **Cold Start** | <1 second | 3-5 seconds |
+| **Timeout** | 10-60 seconds | No limit |
+| **Cost** | Free tier available | Free tier available |
+| **Best For** | API calls, quick tasks | Browser automation, analysis |
+
+---
+
+## Environment Variables
+
+### Google Sheets Tools
+To use the Google Sheets tools, update the `SHEET_URL` in both `api/index.py` and `python/google_sheets/main.py` with your own Google Apps Script endpoint.
+
+**Optional**: Set as environment variable:
+```bash
+# Vercel
+vercel env add SHEET_URL
+
+# Railway
+# Add in Railway dashboard → Variables
+
+# Render
+# Add in Render dashboard → Environment
+```
+
+---
+
+## Why Split Deployments?
+
+**Problem**: Vercel has a 250MB deployment size limit. Tools with Playwright (Chromium browser) and Lighthouse exceed this limit.
+
+**Solution**: Deploy lightweight tools on Vercel's fast serverless platform, and heavy tools on Railway/Render's container platform.
+
+**Benefits**:
+- ✅ Lightweight tools get sub-second cold starts on Vercel
+- ✅ Heavy tools get unlimited runtime and resources on Railway/Render
+- ✅ Both share the same GitHub repository
+- ✅ Both have auto-deployment on push
+- ✅ Both are free-tier eligible
+
+---
+
+## CI/CD
+
+Both deployments can auto-deploy from the same repository:
+
+1. **Push to GitHub** → Triggers both deployments
+2. **Vercel** → Deploys `api/index.py` (lightweight)
+3. **Railway/Render** → Deploys `api/heavy.py` (heavy)
+
+**Setup**:
+- Vercel: Connect GitHub repo in Vercel dashboard
+- Railway: Connect GitHub repo in Railway dashboard
+- Both will auto-deploy on every push to `main`
+
+---
+
+## Adding New Tools
+
+### Adding a Lightweight Tool
+
+1. Create tool in `python/your-tool/`
+2. Add tool function to `api/index.py`
+3. Update `requirements-light.txt` if needed
+4. Push to GitHub → Auto-deploys to Vercel
+
+### Adding a Heavy Tool
+
+1. Create tool in `python/your-tool/`
+2. Add tool function to `api/heavy.py`
+3. Update `requirements-heavy.txt` if needed
+4. Update `Dockerfile` if system dependencies needed
+5. Push to GitHub → Auto-deploys to Railway/Render
+
+---
+
+## Troubleshooting
+
+### Vercel Deployment Fails
+
+**Error**: "Function exceeds size limit"
+- **Cause**: Heavy dependencies in requirements.txt
+- **Fix**: Ensure you're using `requirements-light.txt` (copied as `requirements.txt`)
+
+### Railway/Render Deployment Fails
+
+**Error**: "Playwright browser not found"
+- **Cause**: Browsers not installed
+- **Fix**: Ensure `playwright install chromium` runs in build
+
+**Error**: "Lighthouse command not found"
+- **Cause**: Node.js/Lighthouse not installed
+- **Fix**: Use the provided Dockerfile which includes Node.js
+
+### Cold Starts Are Slow
+
+- **Vercel**: Lightweight tools should start in <1s
+- **Railway/Render**: Heavy tools may take 3-5s on first request (browser initialization)
+- **Solution**: Use Railway's "always on" feature or implement health check pinging
+
+---
+
 ## Contributing
 
-Feel free to add more sample tools! Follow the existing pattern:
-
-1. Create a new directory in `python/`, `typescript/`, or `dotnet/`
-2. Implement your tool using the appropriate SDK
-3. Add the tool to `api/index.py` for unified deployment
-4. Update this README
+Feel free to add more sample tools! Follow the existing pattern and update this README.
 
 ## License
 
