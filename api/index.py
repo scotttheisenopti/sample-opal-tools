@@ -28,11 +28,6 @@ class GreetingParameters(BaseModel):
 class DateParameters(BaseModel):
     format: Optional[str] = Field("%Y-%m-%d", description="Date format (defaults to ISO format)")
 
-# Weather tool parameters
-class WeatherParameters(BaseModel):
-    location: str = Field(description="Location to get weather for")
-    units: str = Field(default="metric", description="Temperature units (metric or imperial)")
-
 # Google Sheets tool parameters
 class GetRowsParameters(BaseModel):
     pass
@@ -92,14 +87,6 @@ async def todays_date(parameters: DateParameters):
         "format": date_format,
         "timestamp": today.timestamp()
     }
-
-# ============================================================================
-# TOOL FUNCTIONS - WEATHER
-# ============================================================================
-
-@tool("get_weather", "Gets current weather for a location")
-async def get_weather(parameters: WeatherParameters):
-    return {"temperature": 22, "condition": "sunny"}
 
 # ============================================================================
 # TOOL FUNCTIONS - GOOGLE SHEETS
