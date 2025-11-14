@@ -30,8 +30,8 @@ class DateParameters(BaseModel):
 
 # Weather tool parameters
 class WeatherParameters(BaseModel):
-    location: str
-    units: str = "metric"
+    location: str = Field(description="Location to get weather for")
+    units: str = Field(default="metric", description="Temperature units (metric or imperial)")
 
 # Google Sheets tool parameters
 class GetRowsParameters(BaseModel):
