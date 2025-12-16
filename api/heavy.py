@@ -7,7 +7,7 @@ For lightweight tools, see api/index.py
 from opal_tools_sdk import ToolsService, tool
 from pydantic import BaseModel, Field
 from fastapi import FastAPI
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import subprocess
 import json
 import tempfile
@@ -21,6 +21,7 @@ from skimage.metrics import structural_similarity as ssim
 import imagehash
 import base64
 import random
+import pandas as pd
 
 # Create FastAPI app for heavy tools
 app = FastAPI(title="Opal Tools Service - Heavy (Railway/Render)")
@@ -43,6 +44,11 @@ class ABTestDetectorParameters(BaseModel):
     viewport_width: int = Field(default=1920, description="Browser viewport width")
     viewport_height: int = Field(default=1080, description="Browser viewport height")
     threshold: float = Field(default=0.05, description="Minimum difference percentage to flag as A/B test (0.05 = 5%)")
+
+# A/B Test Pivot parameters
+class ABTestPivotParameters(BaseModel):
+    data: List[Dict[str, Any]] = Field(description="Raw A/B test data as array of objects (each object represents one row with metric data)")
+    input_format: str = Field(default="json", description="Input format: 'json' (array of objects) or 'tsv' (tab-separated string)")
 
 # ============================================================================
 # TOOL FUNCTIONS - LIGHTHOUSE
@@ -407,6 +413,103 @@ async def detect_ab_test(parameters: ABTestDetectorParameters):
     except Exception as e:
         return {
             "error": f"Failed to analyze URL for A/B tests: {str(e)}"
+        }
+
+# ============================================================================
+# TOOL FUNCTIONS - A/B TEST PIVOT
+# ============================================================================
+
+@tool("pivot_ab_test_data", "Transforms A/B test results from long format to grouped report format for stakeholder reporting")
+async def pivot_ab_test_data(parameters: ABTestPivotParameters):
+    """
+    Pivot A/B test data from long format to grouped report format.
+
+    Transformations:
+    - Filters to treatment variations only (excludes baseline/control)
+    - Groups by experiment + audience + variation
+    - Shows Primary metric first, then Secondary metrics alphabetically
+    - Blanks repeating header columns for cleaner Excel/Sheets display
+    - Adds separator rows between groups
+    """
+    try:
+        # Parse input data based on format
+        if parameters.input_format == "tsv":
+            # If input is TSV string, parse it
+            from io import StringIO
+            df = pd.read_csv(StringIO(parameters.data), sep='\t')
+        else:
+            # Input is JSON array of objects
+            df = pd.DataFrame(parameters.data)
+
+        # Filter to treatment variations only
+        df_treatment = df[df['Baseline Variation'] == False].copy()
+
+        # Sort: Primary metrics first, then Secondary alphabetically
+        bucket_order = {'Primary': 0, 'Secondary': 1}
+        df_treatment['_sort'] = df_treatment['Metric Bucket'].map(bucket_order)
+        df_treatment = df_treatment.sort_values(
+            by=['Name', 'Audience(s)', 'Variation Name', '_sort', 'Metric Name']
+        ).drop(columns=['_sort'])
+
+        # Output columns (reordered from input)
+        header_cols = [
+            'Name', 'Description', 'Created By', 'Audience(s)', 'Traffic Allocation',
+            'Start Date', 'Days Running', 'Visitors', 'Variation Name', 'Baseline Variation'
+        ]
+        metric_cols = [
+            'Metric Bucket', 'Metric Name', 'Metric Value', 'Metric Rate',
+            'Metric Var', 'Metric Stat Sig', 'Metric Confidence Interval'
+        ]
+        all_cols = header_cols + metric_cols
+
+        # Build output rows
+        output_rows = []
+        grouped = df_treatment.groupby(['Name', 'Audience(s)', 'Variation Name'], sort=False)
+
+        for (name, audience, variation), group in grouped:
+            for i, (_, row) in enumerate(group.iterrows()):
+                output_row = {}
+
+                # First row gets header info, subsequent rows are blank
+                if i == 0:
+                    for col in header_cols:
+                        output_row[col] = row[col]
+                else:
+                    for col in header_cols:
+                        output_row[col] = ''
+
+                # All rows get metric info
+                for col in metric_cols:
+                    output_row[col] = row[col]
+
+                output_rows.append(output_row)
+
+            # Add blank separator row between groups
+            output_rows.append({col: '' for col in all_cols})
+
+        result_df = pd.DataFrame(output_rows)[all_cols]
+
+        # Convert DataFrame to list of dicts for JSON response
+        pivoted_data = result_df.to_dict(orient='records')
+
+        # Count unique groups
+        unique_groups = df_treatment.groupby(['Name', 'Audience(s)', 'Variation Name']).ngroups
+
+        return {
+            "pivoted_data": pivoted_data,
+            "row_count": len(pivoted_data),
+            "group_count": unique_groups,
+            "original_row_count": len(df),
+            "treatment_row_count": len(df_treatment)
+        }
+
+    except KeyError as e:
+        return {
+            "error": f"Missing required column in data: {str(e)}. Expected columns include: Name, Audience(s), Variation Name, Baseline Variation, Metric Bucket, Metric Name, etc."
+        }
+    except Exception as e:
+        return {
+            "error": f"Failed to pivot A/B test data: {str(e)}"
         }
 
 # ============================================================================

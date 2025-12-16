@@ -12,3 +12,6 @@ pillow>=10.0.0
 numpy>=1.24.0
 scikit-image>=0.22.0
 imagehash>=4.3.0
+
+# A/B Test Pivot tool
+pandas>=2.0.0
