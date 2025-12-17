@@ -430,6 +430,9 @@ async def pivot_ab_test_data(parameters: ABTestPivotParameters):
     - Shows Primary metric first, then Secondary metrics alphabetically
     - Blanks repeating header columns for cleaner Excel/Sheets display
     - Adds separator rows between groups
+
+    Note: Column names are case-insensitive and flexible (handles variations like
+    "Baseline Variation", "baseline_variation", "Baseline variation", etc.)
     """
     try:
         # Parse input data based on format
@@ -440,6 +443,52 @@ async def pivot_ab_test_data(parameters: ABTestPivotParameters):
         else:
             # Input is JSON array of objects
             df = pd.DataFrame(parameters.data)
+
+        # Define expected column names (properly cased)
+        expected_columns = {
+            'name': 'Name',
+            'description': 'Description',
+            'createdby': 'Created By',
+            'audiences': 'Audience(s)',
+            'trafficallocation': 'Traffic Allocation',
+            'startdate': 'Start Date',
+            'daysrunning': 'Days Running',
+            'visitors': 'Visitors',
+            'variationname': 'Variation Name',
+            'baselinevariation': 'Baseline Variation',
+            'metricbucket': 'Metric Bucket',
+            'metricname': 'Metric Name',
+            'metricvalue': 'Metric Value',
+            'metricrate': 'Metric Rate',
+            'metricvar': 'Metric Var',
+            'metricstatsig': 'Metric Stat Sig',
+            'metricconfidenceinterval': 'Metric Confidence Interval'
+        }
+
+        # Normalize column names: lowercase, remove spaces/underscores/parentheses
+        def normalize_name(col):
+            return col.lower().replace(' ', '').replace('_', '').replace('(', '').replace(')', '')
+
+        # Create mapping from actual columns to expected columns
+        column_mapping = {}
+        for actual_col in df.columns:
+            normalized = normalize_name(actual_col)
+            if normalized in expected_columns:
+                column_mapping[actual_col] = expected_columns[normalized]
+            else:
+                # Keep original column name if no match found
+                column_mapping[actual_col] = actual_col
+
+        # Rename columns to standardized format
+        df = df.rename(columns=column_mapping)
+
+        # Verify required columns are present
+        required_cols = ['Baseline Variation', 'Metric Bucket', 'Name', 'Audience(s)', 'Variation Name', 'Metric Name']
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            return {
+                "error": f"Missing required columns: {', '.join(missing_cols)}. Available columns: {', '.join(df.columns)}"
+            }
 
         # Filter to treatment variations only
         df_treatment = df[df['Baseline Variation'] == False].copy()
